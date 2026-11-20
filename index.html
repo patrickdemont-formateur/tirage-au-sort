@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roulette du tirage au sort</title>
+<style>
+  :root {
+    --bg: #f4ead4;
+    --bg2: #eadcb8;
+    --panel: #fffaf0;
+    --text: #2b1b16;
+    --muted: #6d5a4e;
+    --line: #d9c79b;
+    --red: #a5112a;
+    --gold: #b8860b;
+    --gold-soft: #e9c766;
+    --on-red: #fff6dc;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b3a29;
+      --bg2: #062619;
+      --panel: #0e2d21;
+      --text: #f6ecd0;
+      --muted: #b9c8b5;
+      --line: #1f5a42;
+      --red: #d0233f;
+      --gold: #e5b94e;
+      --gold-soft: #f4d98a;
+      --on-red: #fff6dc;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b3a29;
+    --bg2: #062619;
+    --panel: #0e2d21;
+    --text: #f6ecd0;
+    --muted: #b9c8b5;
+    --line: #1f5a42;
+    --red: #d0233f;
+    --gold: #e5b94e;
+    --gold-soft: #f4d98a;
+    --on-red: #fff6dc;
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% 0%, var(--bg) 0%, var(--bg2) 100%);
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.45;
+  }
+  h1, .winner-name {
+    font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 20px 16px 40px; }
+  header { text-align: center; margin-bottom: 18px; }
+  h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 2.6rem); letter-spacing: .01em; color: var(--gold); }
+  header p { margin: 4px 0 0; color: var(--muted); }
+
+  .layout { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; justify-content: center; }
+  .stage { flex: 1 1 420px; max-width: 560px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .wheel-box { position: relative; width: min(92vw, 540px); aspect-ratio: 1; }
+  #wheel { width: 100%; height: 100%; display: block; filter: drop-shadow(0 10px 18px rgba(0,0,0,.35)); }
+  .pointer {
+    position: absolute; left: 50%; top: -6px; transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 17px solid transparent; border-right: 17px solid transparent;
+    border-top: 40px solid var(--red);
+    filter: drop-shadow(0 2px 2px rgba(0,0,0,.5));
+    z-index: 2;
+  }
+  .pointer::after {
+    content: ""; position: absolute; left: -7px; top: -40px;
+    width: 14px; height: 14px; border-radius: 50%; background: var(--gold-soft);
+    border: 2px solid var(--gold);
+  }
+
+  .btn {
+    font: inherit; cursor: pointer; border-radius: 999px; border: 2px solid var(--gold);
+    padding: 10px 20px; color: var(--text); background: transparent;
+  }
+  .btn:hover:not(:disabled) { background: color-mix(in srgb, var(--gold) 18%, transparent); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid var(--gold-soft); outline-offset: 2px; }
+  .btn-spin {
+    font-size: 1.35rem; font-weight: 700; padding: 14px 44px;
+    background: var(--red); color: var(--on-red); border-color: var(--gold);
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--red) 55%, black), 0 8px 18px rgba(0,0,0,.3);
+  }
+  .btn-spin:hover:not(:disabled) { background: var(--red); filter: brightness(1.1); }
+  .btn-spin:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 color-mix(in srgb, var(--red) 55%, black); }
+
+  .side { flex: 1 1 320px; max-width: 440px; display: flex; flex-direction: column; gap: 16px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px;
+  }
+  .panel h2 { margin: 0 0 8px; font-size: 1.05rem; }
+  .winner-panel { text-align: center; border: 2px solid var(--gold); min-height: 124px; display: flex; flex-direction: column; justify-content: center; }
+  .winner-label { color: var(--muted); margin: 0; }
+  .winner-name { font-size: clamp(2rem, 7vw, 3rem); margin: 4px 0 0; color: var(--gold); word-break: break-word; }
+  .winner-name.pop { animation: pop .6s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .opts { display: flex; flex-direction: column; gap: 8px; }
+  .opts label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .opts input { width: 18px; height: 18px; accent-color: var(--red); }
+
+  ol.history { margin: 0; padding-left: 22px; max-height: 170px; overflow-y: auto; }
+  ol.history li { padding: 1px 0; }
+  .empty { color: var(--muted); margin: 0; }
+
+  textarea {
+    width: 100%; min-height: 150px; resize: vertical; font: inherit; color: var(--text);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .count { color: var(--muted); font-size: .92rem; }
+
+  dialog {
+    width: min(92vw, 520px); padding: 20px; border-radius: 14px;
+    border: 2px solid var(--gold); background: var(--panel); color: var(--text);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .55); }
+  dialog h2 { margin: 0 0 6px; font-size: 1.2rem; }
+  dialog p { margin: 0 0 10px; color: var(--muted); }
+  dialog textarea { min-height: 160px; }
+  .field { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 12px; }
+  .field select {
+    font: inherit; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px;
+  }
+  .field label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .field input[type="radio"] { accent-color: var(--red); }
+  .preview { margin-top: 12px; min-height: 2.9em; font-size: .95rem; }
+  .btn-primary { background: var(--red); color: var(--on-red); }
+  .btn-primary:hover:not(:disabled) { background: var(--red); filter: brightness(1.1); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .winner-name.pop { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Roulette de la classe</h1>
+    <p>Un tour de roue, un nom : le tirage au sort est équitable.</p>
+  </header>
+
+  <div class="layout">
+    <section class="stage" aria-label="Roulette">
+      <div class="wheel-box">
+        <div class="pointer" aria-hidden="true"></div>
+        <canvas id="wheel" width="540" height="540" role="img" aria-label="Roue des prénoms"></canvas>
+      </div>
+      <button id="spin" class="btn btn-spin" type="button">Lancer la roue</button>
+    </section>
+
+    <aside class="side">
+      <div class="panel winner-panel" aria-live="polite">
+        <p class="winner-label" id="winnerLabel">Le prochain tirage désignera…</p>
+        <p class="winner-name" id="winnerName">?</p>
+      </div>
+
+      <div class="panel">
+        <h2>Options</h2>
+        <div class="opts">
+          <label><input type="checkbox" id="noRepeat"> Tirage sans remise (le gagnant sort de la roue)</label>
+          <label><input type="checkbox" id="sound" checked> Sons</label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Déjà tirés</h2>
+        <ol class="history" id="history"></ol>
+        <p class="empty" id="historyEmpty">Aucun tirage pour le moment.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Liste des élèves</h2>
+        <textarea id="list" aria-label="Un prénom par ligne" spellcheck="false"></textarea>
+        <div class="row">
+          <button id="openImport" class="btn btn-primary" type="button">Importer une liste</button>
+          <button id="apply" class="btn" type="button">Appliquer la liste</button>
+          <button id="reset" class="btn" type="button">Réinitialiser</button>
+        </div>
+        <p class="count" id="count"></p>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<dialog id="importDlg" aria-labelledby="importTitle">
+  <h2 id="importTitle">Importer une liste</h2>
+  <p>Copiez des cellules dans Excel ou un tableau dans Word, puis collez-les ci-dessous (Ctrl+V ou ⌘+V).</p>
+  <textarea id="importText" aria-label="Liste à importer" spellcheck="false" placeholder="Collez ici votre liste"></textarea>
+  <div class="field">
+    <label for="importCols">Si plusieurs colonnes :</label>
+    <select id="importCols">
+      <option value="join">Assembler (Prénom Nom)</option>
+      <option value="first">Garder la première colonne</option>
+    </select>
+  </div>
+  <div class="field">
+    <label><input type="radio" name="importMode" value="replace" checked> Remplacer la liste actuelle</label>
+    <label><input type="radio" name="importMode" value="add"> Ajouter à la liste</label>
+  </div>
+  <p class="preview" id="importPreview" aria-live="polite"></p>
+  <div class="row">
+    <button id="importOk" class="btn btn-primary" type="button">Importer</button>
+    <button id="importCancel" class="btn" type="button">Annuler</button>
+  </div>
+</dialog>
+
+<script>
+(function () {
+  var DEFAULT = ["lola","elona","alice","kiara","clara","léna","lenny","sacha","perrine","charlotte","athenais","louy"];
+  var TAU = Math.PI * 2;
+
+  var canvas = document.getElementById("wheel");
+  var ctx = canvas.getContext("2d");
+  var spinBtn = document.getElementById("spin");
+  var winnerName = document.getElementById("winnerName");
+  var winnerLabel = document.getElementById("winnerLabel");
+  var listEl = document.getElementById("list");
+  var countEl = document.getElementById("count");
+  var historyEl = document.getElementById("history");
+  var historyEmpty = document.getElementById("historyEmpty");
+  var noRepeat = document.getElementById("noRepeat");
+  var soundEl = document.getElementById("sound");
+
+  var names = DEFAULT.slice();
+  var rot = 0;
+  var spinning = false;
+  var pendingRemove = null;
+  var history = [];
+  var tickPhase = 0;
+  var audioCtx = null;
+
+  function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  /* ---------- Son ---------- */
+  function audio() {
+    if (!soundEl.checked) return null;
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      return audioCtx;
+    } catch (e) { return null; }
+  }
+  function beep(freq, dur, vol, type, delay) {
+    var a = audio(); if (!a) return;
+    var t = a.currentTime + (delay || 0);
+    var o = a.createOscillator(), g = a.createGain();
+    o.type = type || "square"; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(t); o.stop(t + dur);
+  }
+  function fanfare() {
+    [523, 659, 784, 1047].forEach(function (f, i) { beep(f, 0.28, 0.12, "triangle", i * 0.13); });
+  }
+
+  /* ---------- Dessin ---------- */
+  function setupCanvas() {
+    var box = canvas.parentElement.getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var size = Math.round(box.width);
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    canvas._size = size;
+  }
+
+  function segColor(i, n) {
+    if (n % 2 === 1 && i === n - 1) return "#0f6b3a";
+    return i % 2 === 0 ? "#a5112a" : "#16181d";
+  }
+
+  function draw(time) {
+    var size = canvas._size || 540;
+    var c = size / 2;
+    ctx.clearRect(0, 0, size, size);
+
+    // jante dorée
+    var g = ctx.createRadialGradient(c, c, size * 0.42, c, c, c);
+    g.addColorStop(0, "#8a6410"); g.addColorStop(0.5, "#f1d27a"); g.addColorStop(1, "#8a6410");
+    ctx.beginPath(); ctx.arc(c, c, c - 2, 0, TAU); ctx.fillStyle = g; ctx.fill();
+
+    // ampoules
+    var bulbs = 24, br = c - 13;
+    for (var b = 0; b < bulbs; b++) {
+      var a = (b / bulbs) * TAU;
+      var lit = (Math.floor(time / 140) + b) % 2 === 0;
+      ctx.beginPath();
+      ctx.arc(c + Math.cos(a) * br, c + Math.sin(a) * br, size * 0.011, 0, TAU);
+      ctx.fillStyle = lit ? "#fff4b8" : "#b58a1c";
+      ctx.shadowColor = lit ? "#ffe680" : "transparent";
+      ctx.shadowBlur = lit ? 8 : 0;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    var R = c - 27;
+    var n = names.length;
+
+    if (n === 0) {
+      ctx.beginPath(); ctx.arc(c, c, R, 0, TAU); ctx.fillStyle = "#16181d"; ctx.fill();
+      ctx.fillStyle = "#f6ecd0"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.font = "600 " + Math.round(size * 0.045) + "px Georgia, serif";
+      ctx.fillText("Liste vide", c, c);
+      return;
+    }
+
+    var seg = TAU / n;
+    for (var i = 0; i < n; i++) {
+      var a0 = rot + i * seg, a1 = a0 + seg;
+      ctx.beginPath(); ctx.moveTo(c, c); ctx.arc(c, c, R, a0, a1); ctx.closePath();
+      ctx.fillStyle = segColor(i, n); ctx.fill();
+      ctx.strokeStyle = "#e9c766"; ctx.lineWidth = 2; ctx.stroke();
+
+      ctx.save();
+      ctx.translate(c, c);
+      ctx.rotate(a0 + seg / 2);
+      ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      ctx.fillStyle = "#fff6dc";
+      var fs = Math.max(11, Math.min(size * 0.058, (R * seg) * 0.5));
+      ctx.font = "600 " + Math.round(fs) + "px Georgia, serif";
+      ctx.fillText(cap(names[i]), R - size * 0.04, 0);
+      ctx.restore();
+    }
+
+    // moyeu
+    var hub = ctx.createRadialGradient(c - 6, c - 6, 2, c, c, R * 0.15);
+    hub.addColorStop(0, "#fff0b0"); hub.addColorStop(1, "#a37a14");
+    ctx.beginPath(); ctx.arc(c, c, R * 0.13, 0, TAU); ctx.fillStyle = hub; ctx.fill();
+    ctx.strokeStyle = "#6b4d0b"; ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  function indexAtPointer() {
+    var n = names.length; if (!n) return -1;
+    var seg = TAU / n;
+    var a = ((-Math.PI / 2 - rot) % TAU + TAU) % TAU;
+    return Math.floor(a / seg) % n;
+  }
+
+  /* ---------- Interface ---------- */
+  function refreshList() {
+    listEl.value = names.join("\n");
+    countEl.textContent = names.length + (names.length > 1 ? " élèves dans la roue" : " élève dans la roue");
+    spinBtn.disabled = spinning || names.length === 0;
+    if (names.length === 1 && !spinning) spinBtn.textContent = "Dernier restant";
+    else spinBtn.textContent = "Lancer la roue";
+  }
+  function refreshHistory() {
+    historyEl.innerHTML = "";
+    history.forEach(function (h) {
+      var li = document.createElement("li"); li.textContent = cap(h); historyEl.appendChild(li);
+    });
+    historyEmpty.style.display = history.length ? "none" : "block";
+    historyEl.style.display = history.length ? "block" : "none";
+  }
+  function showWinner(name) {
+    winnerLabel.textContent = "Le sort a désigné";
+    winnerName.textContent = cap(name);
+    winnerName.classList.remove("pop"); void winnerName.offsetWidth; winnerName.classList.add("pop");
+  }
+
+  /* ---------- Tirage ---------- */
+  function spin() {
+    if (spinning) return;
+    if (pendingRemove !== null) {
+      names.splice(pendingRemove, 1);
+      pendingRemove = null;
+      refreshList();
+    }
+    var n = names.length;
+    if (n === 0) return;
+
+    spinning = true; spinBtn.disabled = true;
+    winnerLabel.textContent = "La roue tourne…";
+    winnerName.textContent = "…";
+
+    // 1) tirage équitable du gagnant
+    var w = Math.floor(Math.random() * n);
+    var seg = TAU / n;
+    // 2) point d'arrêt aléatoire à l'intérieur du secteur gagnant (marge de 12 %)
+    var u = 0.12 + Math.random() * 0.76;
+    var target = -Math.PI / 2 - (w + u) * seg;
+    var delta = (((target - rot) % TAU) + TAU) % TAU;
+    var turns = 5 + Math.floor(Math.random() * 3);
+    var startRot = rot;
+    var finalRot = rot + turns * TAU + delta;
+    var dur = 5200 + Math.random() * 1200;
+    var t0 = performance.now();
+    var lastIdx = indexAtPointer();
+    audio();
+
+    function frame(now) {
+      var t = Math.min(1, (now - t0) / dur);
+      var e = 1 - Math.pow(1 - t, 4);
+      rot = startRot + (finalRot - startRot) * e;
+      var idx = indexAtPointer();
+      if (idx !== lastIdx) { beep(950, 0.03, 0.05, "square"); lastIdx = idx; }
+      draw(now);
+      if (t < 1) { requestAnimationFrame(frame); }
+      else { finish(w); }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function finish(w) {
+    spinning = false;
+    rot = ((rot % TAU) + TAU) % TAU;
+    var name = names[w];
+    history.push(name);
+    showWinner(name);
+    refreshHistory();
+    fanfare();
+    if (noRepeat.checked) pendingRemove = w;
+    refreshList();
+    draw(performance.now());
+  }
+
+  /* ---------- Événements ---------- */
+  spinBtn.addEventListener("click", spin);
+
+  document.getElementById("apply").addEventListener("click", function () {
+    if (spinning) return;
+    names = listEl.value.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+    pendingRemove = null;
+    refreshList(); draw(performance.now());
+  });
+  document.getElementById("reset").addEventListener("click", function () {
+    if (spinning) return;
+    names = DEFAULT.slice(); history = []; pendingRemove = null;
+    winnerLabel.textContent = "Le prochain tirage désignera…"; winnerName.textContent = "?";
+    refreshList(); refreshHistory(); draw(performance.now());
+  });
+  window.addEventListener("resize", function () { setupCanvas(); draw(performance.now()); });
+  document.addEventListener("keydown", function (e) {
+    if ((e.code === "Space") && document.activeElement === document.body) { e.preventDefault(); spin(); }
+  });
+
+  /* ---------- Import d'une liste (Excel, tableau Word, texte) ---------- */
+  var dlg = document.getElementById("importDlg");
+  var impText = document.getElementById("importText");
+  var impCols = document.getElementById("importCols");
+  var impPreview = document.getElementById("importPreview");
+  var impOk = document.getElementById("importOk");
+
+  function cleanCell(s) {
+    s = s.replace(/\u00a0/g, " ").trim();
+    s = s.replace(/^["“”«»']+|["“”«»']+$/g, "").trim();
+    s = s.replace(/^(?:[-–—•*·▪]|\d+\s*[.)])\s+/, "").trim();
+    return s;
+  }
+
+  function parseList() {
+    var raw = impText.value.replace(/\r/g, "");
+    var lines = raw.split("\n").filter(function (l) { return l.trim() !== ""; });
+    var oneLine = lines.length === 1;
+    var firstOnly = impCols.value === "first";
+    var out = [];
+    lines.forEach(function (line) {
+      var cells;
+      if (line.indexOf("\t") > -1) cells = line.split("\t");
+      else if (oneLine) cells = line.split(/[;,]/);
+      else cells = line.split(";");
+      cells = cells.map(cleanCell).filter(function (c) { return c && !/^\d+$/.test(c); });
+      if (!cells.length) return;
+      if (oneLine && line.indexOf("\t") === -1) { out = out.concat(cells); return; }
+      out.push(firstOnly ? cells[0] : cells.join(" "));
+    });
+    var seen = {};
+    return out.filter(function (n) {
+      var k = n.toLowerCase();
+      if (seen[k]) return false;
+      seen[k] = true; return true;
+    });
+  }
+
+  function updatePreview() {
+    var list = parseList();
+    var n = list.length;
+    impOk.disabled = n === 0;
+    if (n === 0) { impPreview.textContent = "Aucun nom détecté pour l’instant."; return; }
+    var shown = list.slice(0, 8).map(cap).join(", ") + (n > 8 ? "…" : "");
+    var msg = n + (n > 1 ? " noms détectés : " : " nom détecté : ") + shown + ".";
+    if (n > 40) msg += " Au-delà de 40 noms, la roue devient peu lisible.";
+    impPreview.textContent = msg;
+  }
+
+  document.getElementById("openImport").addEventListener("click", function () {
+    if (spinning) return;
+    impText.value = "";
+    updatePreview();
+    dlg.showModal();
+    impText.focus();
+  });
+  document.getElementById("importCancel").addEventListener("click", function () { dlg.close(); });
+  impText.addEventListener("input", updatePreview);
+  impCols.addEventListener("change", updatePreview);
+
+  impOk.addEventListener("click", function () {
+    var list = parseList();
+    if (!list.length) return;
+    var mode = dlg.querySelector('input[name="importMode"]:checked').value;
+    if (mode === "add") {
+      var have = {};
+      names.forEach(function (x) { have[x.toLowerCase()] = true; });
+      names = names.concat(list.filter(function (x) { return !have[x.toLowerCase()]; }));
+    } else {
+      names = list;
+      history = [];
+      winnerLabel.textContent = "Le prochain tirage désignera…";
+      winnerName.textContent = "?";
+    }
+    pendingRemove = null;
+    refreshList(); refreshHistory(); draw(performance.now());
+    dlg.close();
+  });
+
+  setupCanvas(); refreshList(); refreshHistory(); draw(performance.now());
+})();
+</script>
+</body>
+</html>
